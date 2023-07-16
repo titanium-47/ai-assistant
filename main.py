@@ -1,37 +1,27 @@
-import subprocess
-import os
-from dotenv import load_dotenv
-import re
+from llm import generate
+from llm import generate_prompt
+from llm import WINDOW
+from speach import speech_text
+from speach import speak_text
 
-if os.path.exists(".env"):
-	load_dotenv()
-
-EXECUTABLE_PATH = os.environ.get("EXECUTABLE_PATH")
-MODEL_PATH = os.environ.get("MODEL_PATH")
-PROMPT_PATH = os.environ.get("PROMPT_PATH")
-RESPONSE_PATTERN = r'\[\[AI_NAME\]\](.*)'
-
-
-def talk():
+def chat():
+    chat_history = []
     while True:
-        prompt = input()
-        if prompt == "quit":
+        raw_prompt = ""
+        while True:
+            raw_prompt = speech_text()
+            if raw_prompt != None:
+                break
+        print(raw_prompt)
+        if raw_prompt == "quit":
             return
-        prompt = f"[[USER_NAME]]: {prompt}\n[[AI_NAME]]: "
-        print(generate(prompt))
-
-def generate(prompt):
-    with open(PROMPT_PATH, 'w') as f:
-        f.write(prompt)
-        f.close()
-    proc = subprocess.Popen([EXECUTABLE_PATH, '-ngl', '20', '-m', MODEL_PATH, '-f', PROMPT_PATH, '-n', '4096'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=subprocess.CREATE_NO_WINDOW, start_new_session=True)
-    while True:
-        if proc.poll() is not None:
-            break
-    output = proc.stdout.read()
-    proc.wait()
-    proc.terminate()
-    return re.search(RESPONSE_PATTERN, output.decode('utf-8')).group(1)[3:]
+        prompt = generate_prompt(chat_history, raw_prompt)
+        response = generate(prompt)
+        print(response)
+        speak_text(response)
+        chat_history.append((raw_prompt, response))
+        if len(chat_history) > WINDOW:
+            chat_history = chat_history[1:]
 
 if __name__ == "__main__":
-    talk()
+    chat()
